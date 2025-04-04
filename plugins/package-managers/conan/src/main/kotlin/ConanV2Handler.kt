@@ -32,7 +32,6 @@ import org.ossreviewtoolkit.model.PackageReference
 import org.ossreviewtoolkit.model.RemoteArtifact
 import org.ossreviewtoolkit.model.Scope
 import org.ossreviewtoolkit.model.VcsInfo
-import org.ossreviewtoolkit.plugins.packagemanagers.conan.Conan.Companion.DUMMY_COMPILER_SETTINGS
 import org.ossreviewtoolkit.plugins.packagemanagers.conan.Conan.Companion.SCOPE_NAME_DEPENDENCIES
 import org.ossreviewtoolkit.plugins.packagemanagers.conan.Conan.Companion.SCOPE_NAME_DEV_DEPENDENCIES
 import org.ossreviewtoolkit.utils.common.Os
@@ -71,7 +70,6 @@ internal class ConanV2Handler(private val conan: Conan) : ConanVersionHandler {
                 lockfileName,
                 "--out-file",
                 jsonFile.absolutePath,
-                *DUMMY_COMPILER_SETTINGS,
                 definitionFile.name
             ).requireSuccess()
         } else {
@@ -83,7 +81,6 @@ internal class ConanV2Handler(private val conan: Conan) : ConanVersionHandler {
                 "json",
                 "--out-file",
                 jsonFile.absolutePath,
-                *DUMMY_COMPILER_SETTINGS,
                 definitionFile.name,
                 "--profile",
                 "ort-default"
