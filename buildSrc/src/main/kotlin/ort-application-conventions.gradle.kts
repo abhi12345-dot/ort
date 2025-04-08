@@ -133,7 +133,7 @@ tasks.named<BuildNativeImageTask>("nativeCompile") {
     }
 }
 
-val jar by tasks.getting(Jar::class)
+val appJar = tasks.named<Jar>("jar")
 
 val pathingJar by tasks.registering(Jar::class) {
     archiveClassifier = "pathing"
@@ -146,7 +146,7 @@ val pathingJar by tasks.registering(Jar::class) {
 }
 
 tasks.named<CreateStartScripts>("startScripts") {
-    classpath = jar.outputs.files + pathingJar.get().outputs.files
+    classpath = appJar.get().outputs.files + pathingJar.get().outputs.files
 
     doLast {
         // Append the plugin directory to the Windows classpath.
