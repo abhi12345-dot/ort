@@ -31,9 +31,8 @@ import kotlinx.serialization.decodeFromString
 
 import org.apache.logging.log4j.kotlin.logger
 
-import org.jruby.embed.LocalContextScope
-import org.jruby.embed.PathType
-import org.jruby.embed.ScriptingContainer
+import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.Source
 
 import org.ossreviewtoolkit.analyzer.PackageManager
 import org.ossreviewtoolkit.analyzer.PackageManagerFactory
@@ -66,12 +65,12 @@ import org.ossreviewtoolkit.utils.ort.showStackTrace
 /**
  * The path to the helper script resource that resolves a `Gemfile`'s top-level dependencies with group information.
  */
-private const val ROOT_DEPENDENCIES_SCRIPT = "root_dependencies.rb"
+private const val ROOT_DEPENDENCIES_SCRIPT = "/root_dependencies.rb"
 
 /**
  * The path to the helper script resource that resolves a `Gemfile`'s dependencies.
  */
-private const val RESOLVE_DEPENDENCIES_SCRIPT = "resolve_dependencies.rb"
+private const val RESOLVE_DEPENDENCIES_SCRIPT = "/resolve_dependencies.rb"
 
 /**
  * The name of the Bundler Gem.
@@ -83,32 +82,45 @@ private const val BUNDLER_GEM_NAME = "bundler"
  */
 internal const val BUNDLER_LOCKFILE_NAME = "Gemfile.lock"
 
-private fun runScriptCode(code: String, workingDir: File? = null): String {
+private fun runScriptCode(sourceCode: String, workingDir: File? = null): String {
     val bytes = ByteArrayOutputStream()
 
-    with(ScriptingContainer(LocalContextScope.THREADSAFE)) {
-        output = PrintStream(bytes, /* autoFlush = */ true, "UTF-8")
-        if (workingDir != null) currentDirectory = workingDir.path
-        runScriptlet(code)
+    PrintStream(bytes, /* autoFlush = */ false, "UTF-8").use { stream ->
+        val context = Context.newBuilder().apply {
+            allowAllAccess(true)
+            if (workingDir != null) currentWorkingDirectory(workingDir.toPath())
+            out(stream)
+        }.build()
+
+        context.use { it.eval("ruby", sourceCode) }
     }
 
     val stdout = bytes.toString()
-    if (stdout.isEmpty()) throw IOException("Failed to run script code '$code'.")
+    if (stdout.isEmpty()) throw IOException("Failed to run script code '$sourceCode'.")
 
     return stdout
 }
 
-private fun runScriptResource(resource: String, workingDir: File? = null): String {
+private fun runScriptResource(resourceName: String, workingDir: File? = null): String {
+    val resource = checkNotNull(object {}.javaClass.getResource(resourceName)) {
+        "Resource '$resourceName' not found."
+    }
+
+    val source = Source.newBuilder("ruby", resource).build()
     val bytes = ByteArrayOutputStream()
 
-    with(ScriptingContainer(LocalContextScope.THREADSAFE)) {
-        output = PrintStream(bytes, /* autoFlush = */ true, "UTF-8")
-        if (workingDir != null) currentDirectory = workingDir.path
-        runScriptlet(PathType.CLASSPATH, resource)
+    PrintStream(bytes, /* autoFlush = */ false, "UTF-8").use { stream ->
+        val context = Context.newBuilder().apply {
+            allowAllAccess(true)
+            if (workingDir != null) currentWorkingDirectory(workingDir.toPath())
+            out(stream)
+        }.build()
+
+        context.use { it.eval(source) }
     }
 
     val stdout = bytes.toString()
-    if (stdout.isEmpty()) throw IOException("Failed to run script resource '$resource'.")
+    if (stdout.isEmpty()) throw IOException("Failed to run script resource '$resourceName'.")
 
     return stdout
 }
@@ -143,6 +155,11 @@ class Bundler(
     override val descriptor: PluginDescriptor = BundlerFactory.descriptor,
     private val config: BundlerConfig
 ) : PackageManager("Bundler") {
+    init {
+        // See https://www.graalvm.org/latest/reference-manual/embed-languages/#runtime-optimization-support.
+        System.setProperty("polyglot.engine.WarnInterpreterOnly", "false")
+    }
+
     override val globsForDefinitionFiles = listOf("Gemfile")
 
     override fun beforeResolution(
