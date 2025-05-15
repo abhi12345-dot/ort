@@ -58,7 +58,7 @@ class SpdxSimpleLicenseMappingTest : WordSpec({
             }
         }
 
-        "contain equal digits omitting trailing zeros" {
+        "contain equal digits" {
             val exceptions = mapOf(
                 // See https://www.eclipse.org/org/documents/edl-v10.php.
                 "EDL-1.0" to SpdxLicense.BSD_3_CLAUSE,
@@ -69,8 +69,8 @@ class SpdxSimpleLicenseMappingTest : WordSpec({
             SpdxSimpleLicenseMapping.simpleLicenseMapping.filterNot {
                 it in exceptions.entries
             }.forAll { (key, license) ->
-                val digitsInKey = key.filter { it.isDigit() }.dropLastWhile { it == '0' }
-                val digitsInLicense = license.id.filter { it.isDigit() }.dropLastWhile { it == '0' }
+                val digitsInKey = key.filter { it.isDigit() }
+                val digitsInLicense = license.id.filter { it.isDigit() }
                 digitsInKey shouldBe digitsInLicense
             }
         }
